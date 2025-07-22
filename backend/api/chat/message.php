@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../../vendor/autoload.php';
 require_once __DIR__ . '/../../models/Chat.php';
 require_once __DIR__ . '/../../models/OpenAIService.php';
+require_once __DIR__ . '/../../models/UsageTracker.php';
 require_once __DIR__ . '/../../middleware/CorsMiddleware.php';
 require_once __DIR__ . '/../../middleware/JwtMiddleware.php';
 
@@ -58,6 +59,14 @@ try {
     $chatSession = new ChatSession();
     $message = new Message();
     $openai = new OpenAIService();
+    $usageTracker = new UsageTracker();
+    
+    // Check user's monthly usage limit (optional)
+    if ($usageTracker->checkUserLimit($userData->user_id, 50.00)) { // $50 monthly limit
+        http_response_code(429); // Too Many Requests
+        echo json_encode(['error' => 'Monthly usage limit exceeded']);
+        exit();
+    }
     
     // Verify session belongs to user
     $session = $chatSession->getSession($sessionId, $userData->user_id);
@@ -120,6 +129,11 @@ try {
         exit();
     }
     
+    // Log usage for cost tracking (estimate tokens for now)
+    $inputTokens = strlen($userMessage) / 4; // Rough estimation: 4 chars = 1 token
+    $outputTokens = strlen($aiResponse) / 4;
+    $usageTracker->logUsage($userData->user_id, $sessionId, $aiMessageId, $inputTokens, $outputTokens);
+    
     // Return successful response
     echo json_encode([
         'success' => true,
@@ -127,7 +141,12 @@ try {
         'ai_message_id' => $aiMessageId,
         'ai_response' => $aiResponse,
         'thread_id' => $aiResult['thread_id'],
-        'run_id' => $aiResult['run_id'] ?? null
+        'run_id' => $aiResult['run_id'] ?? null,
+        'usage' => [
+            'estimated_input_tokens' => $inputTokens,
+            'estimated_output_tokens' => $outputTokens,
+            'estimated_cost' => ($inputTokens * 0.00015 + $outputTokens * 0.0006) / 1000
+        ]
     ]);
     
 } catch (Exception $e) {
