@@ -6,10 +6,11 @@ use OpenAI\Client;
 /**
  * OpenAI Service
  * 
- * This class handles communication with the OpenAI API
+ * This class handles communication with the OpenAI Assistants API
  */
 class OpenAIService {
     private $client;
+    private $assistantId;
 
     public function __construct() {
         // Initialize OpenAI client with API key from environment
@@ -20,67 +21,99 @@ class OpenAIService {
         }
         
         $this->client = \OpenAI::client($apiKey);
+        $this->assistantId = $_ENV['OPENAI_ASSISTANT_ID'] ?? 'asst_6Wx8MRI5fMbK0Y9dfmlpw80c';
     }
 
     /**
-     * Send a chat completion request to OpenAI
+     * Send a message to the OpenAI Assistant
      * 
-     * @param array $messages Array of messages in OpenAI format
-     * @param string $model The model to use (default: gpt-3.5-turbo)
-     * @return array|null Response from OpenAI or null on error
+     * @param string $message The user's message
+     * @param string $threadId Optional existing thread ID for conversation continuity
+     * @return array Response with assistant's reply and thread information
      */
-    public function sendChatRequest($messages, $model = 'gpt-3.5-turbo') {
+    public function sendMessageToAssistant($message, $threadId = null) {
         try {
-            $response = $this->client->chat()->create([
-                'model' => $model,
-                'messages' => $messages,
-                'max_tokens' => 1000,
-                'temperature' => 0.7,
+            // Create or use existing thread
+            if ($threadId === null) {
+                $thread = $this->client->threads()->create([]);
+                $threadId = $thread->id;
+            }
+
+            // Add user message to thread
+            $this->client->threads()->messages()->create($threadId, [
+                'role' => 'user',
+                'content' => $message,
             ]);
 
-            return [
-                'success' => true,
-                'message' => $response->choices[0]->message->content,
-                'usage' => [
-                    'prompt_tokens' => $response->usage->promptTokens,
-                    'completion_tokens' => $response->usage->completionTokens,
-                    'total_tokens' => $response->usage->totalTokens
-                ]
-            ];
+            // Run the assistant
+            $run = $this->client->threads()->runs()->create($threadId, [
+                'assistant_id' => $this->assistantId,
+            ]);
+
+            // Wait for completion (with timeout)
+            $timeout = 30; // 30 seconds timeout
+            $start = time();
+            
+            do {
+                sleep(1); // Wait 1 second between checks
+                $run = $this->client->threads()->runs()->retrieve($threadId, $run->id);
+                
+                if (time() - $start > $timeout) {
+                    throw new Exception('Assistant response timeout');
+                }
+            } while ($run->status === 'queued' || $run->status === 'in_progress');
+
+            if ($run->status === 'completed') {
+                // Get the assistant's response
+                $messages = $this->client->threads()->messages()->list($threadId, [
+                    'limit' => 1,
+                ]);
+
+                $assistantMessage = $messages->data[0];
+                $content = $assistantMessage->content[0]->text->value;
+
+                return [
+                    'success' => true,
+                    'message' => $content,
+                    'thread_id' => $threadId,
+                    'run_id' => $run->id
+                ];
+            } else {
+                throw new Exception('Assistant run failed with status: ' . $run->status);
+            }
 
         } catch (Exception $e) {
-            error_log("OpenAI API error: " . $e->getMessage());
+            error_log("OpenAI Assistant error: " . $e->getMessage());
             return [
                 'success' => false,
-                'error' => 'Failed to get response from AI service'
+                'error' => 'Failed to get response from AI assistant: ' . $e->getMessage()
             ];
         }
     }
 
     /**
-     * Convert chat history to OpenAI message format
+     * Get the assistant information
      * 
-     * @param array $messages Database messages
-     * @return array OpenAI formatted messages
+     * @return array
      */
-    public function formatMessagesForOpenAI($messages) {
-        $formatted = [];
-        
-        // Add system message
-        $formatted[] = [
-            'role' => 'system',
-            'content' => 'You are a helpful assistant. Be friendly and informative in your responses.'
-        ];
-
-        // Add conversation history
-        foreach ($messages as $message) {
-            $formatted[] = [
-                'role' => $message['role'],
-                'content' => $message['content']
+    public function getAssistantInfo() {
+        try {
+            $assistant = $this->client->assistants()->retrieve($this->assistantId);
+            return [
+                'success' => true,
+                'assistant' => [
+                    'id' => $assistant->id,
+                    'name' => $assistant->name,
+                    'description' => $assistant->description,
+                    'model' => $assistant->model
+                ]
+            ];
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'error' => 'Failed to retrieve assistant info: ' . $e->getMessage()
             ];
         }
-
-        return $formatted;
     }
 
     /**
@@ -93,7 +126,7 @@ class OpenAIService {
     }
 
     /**
-     * Get a simple test response from OpenAI
+     * Get a simple test response from the OpenAI Assistant
      * 
      * @return array
      */
@@ -106,18 +139,24 @@ class OpenAIService {
         }
 
         try {
-            $response = $this->client->chat()->create([
-                'model' => 'gpt-3.5-turbo',
-                'messages' => [
-                    ['role' => 'user', 'content' => 'Say hello!']
-                ],
-                'max_tokens' => 50
-            ]);
+            // First try to get assistant info
+            $assistantInfo = $this->getAssistantInfo();
+            if (!$assistantInfo['success']) {
+                return $assistantInfo;
+            }
 
-            return [
-                'success' => true,
-                'message' => $response->choices[0]->message->content
-            ];
+            // Test with a simple message
+            $result = $this->sendMessageToAssistant('Hello! Please respond with a brief greeting.');
+            
+            if ($result['success']) {
+                return [
+                    'success' => true,
+                    'message' => $result['message'],
+                    'assistant_info' => $assistantInfo['assistant']
+                ];
+            } else {
+                return $result;
+            }
 
         } catch (Exception $e) {
             return [

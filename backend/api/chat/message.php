@@ -75,8 +75,9 @@ try {
         exit();
     }
     
-    // Get conversation history
+    // Get conversation history and thread ID
     $messages = $message->getSessionMessages($sessionId);
+    $threadId = $session['thread_id'];
     
     // Check if OpenAI is configured
     if (!$openai->isConfigured()) {
@@ -95,16 +96,18 @@ try {
         exit();
     }
     
-    // Format messages for OpenAI
-    $openaiMessages = $openai->formatMessagesForOpenAI($messages);
-    
-    // Get AI response
-    $aiResult = $openai->sendChatRequest($openaiMessages);
+    // Send message to OpenAI Assistant
+    $aiResult = $openai->sendMessageToAssistant($userMessage, $threadId);
     
     if (!$aiResult['success']) {
         http_response_code(500);
         echo json_encode(['error' => $aiResult['error']]);
         exit();
+    }
+    
+    // Update session with thread ID if it's new
+    if ($threadId === null && isset($aiResult['thread_id'])) {
+        $chatSession->updateThreadId($sessionId, $userData->user_id, $aiResult['thread_id']);
     }
     
     // Save AI response
@@ -123,7 +126,8 @@ try {
         'user_message_id' => $userMessageId,
         'ai_message_id' => $aiMessageId,
         'ai_response' => $aiResponse,
-        'usage' => $aiResult['usage'] ?? null
+        'thread_id' => $aiResult['thread_id'],
+        'run_id' => $aiResult['run_id'] ?? null
     ]);
     
 } catch (Exception $e) {

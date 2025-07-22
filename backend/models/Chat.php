@@ -20,14 +20,15 @@ class ChatSession {
      * 
      * @param int $userId
      * @param string $title
+     * @param string $threadId Optional OpenAI thread ID
      * @return int|false Session ID or false on failure
      */
-    public function create($userId, $title = 'New Chat') {
+    public function create($userId, $title = 'New Chat', $threadId = null) {
         try {
-            $query = "INSERT INTO " . $this->table . " (user_id, title) VALUES (?, ?)";
+            $query = "INSERT INTO " . $this->table . " (user_id, title, thread_id) VALUES (?, ?, ?)";
             $stmt = $this->db->prepare($query);
             
-            if ($stmt->execute([$userId, $title])) {
+            if ($stmt->execute([$userId, $title, $threadId])) {
                 return $this->db->lastInsertId();
             }
             
@@ -98,6 +99,27 @@ class ChatSession {
             
         } catch (PDOException $e) {
             error_log("Update session title error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Update session thread ID
+     * 
+     * @param int $sessionId
+     * @param int $userId
+     * @param string $threadId
+     * @return bool
+     */
+    public function updateThreadId($sessionId, $userId, $threadId) {
+        try {
+            $query = "UPDATE " . $this->table . " SET thread_id = ? WHERE id = ? AND user_id = ?";
+            $stmt = $this->db->prepare($query);
+            
+            return $stmt->execute([$threadId, $sessionId, $userId]);
+            
+        } catch (PDOException $e) {
+            error_log("Update session thread ID error: " . $e->getMessage());
             return false;
         }
     }
