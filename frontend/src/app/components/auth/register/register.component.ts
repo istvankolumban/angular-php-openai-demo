@@ -52,13 +52,9 @@ export class RegisterComponent {
       this.errorMessage = '';
       const { confirmPassword, ...registerData }: RegisterData & { confirmPassword: string } = this.registerForm.value;
 
-      // Debug: Log the data being sent
-      console.log('Registration data:', registerData);
-
       this.authService.register(registerData).subscribe({
         next: (response) => {
           this.isLoading = false;
-          console.log('Registration response:', response);
           if (response.status === 'success') {
             this.router.navigate(['/chat']);
           } else {

@@ -31,7 +31,10 @@ $userData = JwtMiddleware::requireAuth();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
-    echo json_encode(['error' => 'Method not allowed']);
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Method not allowed'
+    ]);
     exit();
 }
 
@@ -41,7 +44,10 @@ $input = json_decode(file_get_contents('php://input'), true);
 // Validate required fields
 if (!isset($input['session_id']) || !isset($input['message'])) {
     http_response_code(400);
-    echo json_encode(['error' => 'Missing required fields: session_id, message']);
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Missing required fields: session_id, message'
+    ]);
     exit();
 }
 
@@ -50,7 +56,10 @@ $userMessage = trim($input['message']);
 
 if (empty($userMessage)) {
     http_response_code(400);
-    echo json_encode(['error' => 'Message cannot be empty']);
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Message cannot be empty'
+    ]);
     exit();
 }
 
@@ -64,7 +73,10 @@ try {
     // Check user's monthly usage limit (optional)
     if ($usageTracker->checkUserLimit($userData->user_id, 50.00)) { // $50 monthly limit
         http_response_code(429); // Too Many Requests
-        echo json_encode(['error' => 'Monthly usage limit exceeded']);
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'Monthly usage limit exceeded'
+        ]);
         exit();
     }
     
@@ -72,7 +84,10 @@ try {
     $session = $chatSession->getSession($sessionId, $userData->user_id);
     if (!$session) {
         http_response_code(404);
-        echo json_encode(['error' => 'Chat session not found']);
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'Chat session not found'
+        ]);
         exit();
     }
     
@@ -80,7 +95,10 @@ try {
     $userMessageId = $message->create($sessionId, 'user', $userMessage);
     if (!$userMessageId) {
         http_response_code(500);
-        echo json_encode(['error' => 'Failed to save user message']);
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'Failed to save user message'
+        ]);
         exit();
     }
     
@@ -96,11 +114,14 @@ try {
         $aiMessageId = $message->create($sessionId, 'assistant', $aiResponse);
         
         echo json_encode([
-            'success' => true,
-            'user_message_id' => $userMessageId,
-            'ai_message_id' => $aiMessageId,
-            'ai_response' => $aiResponse,
-            'is_demo' => true
+            'status' => 'success',
+            'message' => 'Message sent successfully',
+            'data' => [
+                'response' => $aiResponse,
+                'user_message_id' => $userMessageId,
+                'ai_message_id' => $aiMessageId,
+                'is_demo' => true
+            ]
         ]);
         exit();
     }
@@ -110,7 +131,10 @@ try {
     
     if (!$aiResult['success']) {
         http_response_code(500);
-        echo json_encode(['error' => $aiResult['error']]);
+        echo json_encode([
+            'status' => 'error',
+            'message' => $aiResult['error']
+        ]);
         exit();
     }
     
@@ -125,7 +149,10 @@ try {
     
     if (!$aiMessageId) {
         http_response_code(500);
-        echo json_encode(['error' => 'Failed to save AI response']);
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'Failed to save AI response'
+        ]);
         exit();
     }
     
@@ -136,22 +163,28 @@ try {
     
     // Return successful response
     echo json_encode([
-        'success' => true,
-        'user_message_id' => $userMessageId,
-        'ai_message_id' => $aiMessageId,
-        'ai_response' => $aiResponse,
-        'thread_id' => $aiResult['thread_id'],
-        'run_id' => $aiResult['run_id'] ?? null,
-        'usage' => [
-            'estimated_input_tokens' => $inputTokens,
-            'estimated_output_tokens' => $outputTokens,
-            'estimated_cost' => ($inputTokens * 0.00015 + $outputTokens * 0.0006) / 1000
+        'status' => 'success',
+        'message' => 'Message sent successfully',
+        'data' => [
+            'response' => $aiResponse,
+            'user_message_id' => $userMessageId,
+            'ai_message_id' => $aiMessageId,
+            'thread_id' => $aiResult['thread_id'],
+            'run_id' => $aiResult['run_id'] ?? null,
+            'usage' => [
+                'estimated_input_tokens' => $inputTokens,
+                'estimated_output_tokens' => $outputTokens,
+                'estimated_cost' => ($inputTokens * 0.00015 + $outputTokens * 0.0006) / 1000
+            ]
         ]
     ]);
     
 } catch (Exception $e) {
     error_log("Chat message error: " . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['error' => 'Internal server error']);
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Internal server error'
+    ]);
 }
 ?>

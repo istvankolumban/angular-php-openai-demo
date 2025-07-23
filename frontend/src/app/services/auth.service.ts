@@ -27,9 +27,11 @@ export interface RegisterData {
 export class AuthService {
   private currentUserSubject = new BehaviorSubject<User | null>(null);
   private isAuthenticatedSubject = new BehaviorSubject<boolean>(false);
+  private authCheckCompleted = new BehaviorSubject<boolean>(false);
 
   public currentUser$ = this.currentUserSubject.asObservable();
   public isAuthenticated$ = this.isAuthenticatedSubject.asObservable();
+  public authCheckCompleted$ = this.authCheckCompleted.asObservable();
 
   constructor(
     private apiService: ApiService,
@@ -50,26 +52,26 @@ export class AuthService {
           } else {
             this.logout();
           }
+          this.authCheckCompleted.next(true);
         },
         error: () => {
           this.logout();
+          this.authCheckCompleted.next(true);
         }
       });
+    } else {
+      // No token found
+      this.authCheckCompleted.next(true);
     }
   }
 
   login(credentials: LoginCredentials): Observable<any> {
     return this.apiService.login(credentials).pipe(
       tap(response => {
-        console.log('AuthService received response:', response);
         if (response.status === 'success' && response.data) {
-          console.log('Setting auth token and user data');
           localStorage.setItem('auth_token', response.data.token);
           this.currentUserSubject.next(response.data.user);
           this.isAuthenticatedSubject.next(true);
-          console.log('Auth state updated successfully');
-        } else {
-          console.log('Login response does not have success status or data');
         }
       })
     );

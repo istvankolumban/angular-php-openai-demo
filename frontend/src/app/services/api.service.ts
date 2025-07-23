@@ -52,6 +52,12 @@ export class ApiService {
     });
   }
 
+  createChatSession(title: string): Observable<ApiResponse> {
+    return this.http.post<ApiResponse>(`${this.baseUrl}/chat/sessions.php`, { title }, {
+      headers: this.getHeaders()
+    });
+  }
+
   sendMessage(messageData: any): Observable<ApiResponse> {
     return this.http.post<ApiResponse>(`${this.baseUrl}/chat/message.php`, messageData, {
       headers: this.getHeaders()

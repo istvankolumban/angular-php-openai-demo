@@ -36,25 +36,12 @@ export class LoginComponent {
       this.errorMessage = '';
       const credentials: LoginCredentials = this.loginForm.value;
 
-      // Debug: Log the data being sent
-      console.log('Login credentials:', credentials);
-
       this.authService.login(credentials).subscribe({
         next: (response) => {
           this.isLoading = false;
-          console.log('Login response:', response);
-          console.log('Response status:', response.status);
-          console.log('Status check result:', response.status === 'success');
-          
           if (response.status === 'success') {
-            console.log('Redirecting to /chat...');
-            this.router.navigate(['/chat']).then(success => {
-              console.log('Navigation success:', success);
-            }).catch(error => {
-              console.error('Navigation error:', error);
-            });
+            this.router.navigate(['/chat']);
           } else {
-            console.log('Login failed, showing error message');
             this.errorMessage = response.message || 'Login failed';
           }
         },

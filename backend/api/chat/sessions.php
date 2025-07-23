@@ -30,8 +30,9 @@ if ($method === 'GET') {
     $sessions = $chatSession->getUserSessions($userData->user_id);
     
     echo json_encode([
-        'success' => true,
-        'sessions' => $sessions
+        'status' => 'success',
+        'message' => 'Sessions retrieved successfully',
+        'data' => $sessions
     ]);
     
 } elseif ($method === 'POST') {
@@ -39,22 +40,34 @@ if ($method === 'GET') {
     $input = json_decode(file_get_contents('php://input'), true);
     
     $title = isset($input['title']) ? trim($input['title']) : 'New Chat';
+    if (empty($title)) {
+        $title = 'New Chat ' . date('M j, Y');
+    }
     
     $sessionId = $chatSession->create($userData->user_id, $title);
     
     if ($sessionId) {
+        // Get the created session details
+        $newSession = $chatSession->getSession($sessionId, $userData->user_id);
+        
         echo json_encode([
-            'success' => true,
-            'message' => 'Chat session created',
-            'session_id' => $sessionId
+            'status' => 'success',
+            'message' => 'Chat session created successfully',
+            'data' => $newSession
         ]);
     } else {
         http_response_code(500);
-        echo json_encode(['error' => 'Failed to create chat session']);
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'Failed to create chat session'
+        ]);
     }
     
 } else {
     http_response_code(405);
-    echo json_encode(['error' => 'Method not allowed']);
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Method not allowed'
+    ]);
 }
 ?>
