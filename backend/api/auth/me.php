@@ -22,7 +22,10 @@ CorsMiddleware::setJsonHeaders();
 // Only allow GET requests
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     http_response_code(405); // Method Not Allowed
-    echo json_encode(['error' => 'Method not allowed']);
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Method not allowed'
+    ]);
     exit();
 }
 
@@ -36,16 +39,21 @@ try {
     
     if (!$userData) {
         http_response_code(404); // Not Found
-        echo json_encode(['error' => 'User not found']);
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'User not found'
+        ]);
         exit();
     }
     
     // Return user data (without sensitive information)
     http_response_code(200); // OK
     echo json_encode([
-        'user' => [
+        'status' => 'success',
+        'message' => 'User data retrieved successfully',
+        'data' => [
             'id' => $userData['id'],
-            'username' => $userData['username'],
+            'name' => $userData['username'],
             'email' => $userData['email'],
             'created_at' => $userData['created_at']
         ]
@@ -54,6 +62,9 @@ try {
 } catch (Exception $e) {
     error_log("Get user error: " . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['error' => 'Internal server error']);
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Internal server error'
+    ]);
 }
 ?>

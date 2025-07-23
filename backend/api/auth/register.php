@@ -30,32 +30,44 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $input = json_decode(file_get_contents('php://input'), true);
 
 // Validate input
-if (!isset($input['username']) || !isset($input['email']) || !isset($input['password'])) {
+if (!isset($input['name']) || !isset($input['email']) || !isset($input['password'])) {
     http_response_code(400); // Bad Request
-    echo json_encode(['error' => 'Username, email, and password are required']);
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Name, email, and password are required'
+    ]);
     exit();
 }
 
-$username = trim($input['username']);
+$username = trim($input['name']);
 $email = trim($input['email']);
 $password = $input['password'];
 
 // Basic validation
 if (empty($username) || empty($email) || empty($password)) {
     http_response_code(400);
-    echo json_encode(['error' => 'All fields are required']);
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'All fields are required'
+    ]);
     exit();
 }
 
 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
     http_response_code(400);
-    echo json_encode(['error' => 'Invalid email format']);
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Invalid email format'
+    ]);
     exit();
 }
 
 if (strlen($password) < 6) {
     http_response_code(400);
-    echo json_encode(['error' => 'Password must be at least 6 characters long']);
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Password must be at least 6 characters long'
+    ]);
     exit();
 }
 
@@ -66,14 +78,20 @@ try {
     // Check if email already exists
     if ($user->emailExists($email)) {
         http_response_code(409); // Conflict
-        echo json_encode(['error' => 'Email already exists']);
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'Email already exists'
+        ]);
         exit();
     }
     
     // Check if username already exists
     if ($user->usernameExists($username)) {
         http_response_code(409);
-        echo json_encode(['error' => 'Username already exists']);
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'Username already exists'
+        ]);
         exit();
     }
     
@@ -91,22 +109,32 @@ try {
         // Return success response
         http_response_code(201); // Created
         echo json_encode([
+            'status' => 'success',
             'message' => 'User created successfully',
-            'user' => [
-                'id' => $user->id,
-                'username' => $user->username,
-                'email' => $user->email
-            ],
-            'token' => $token
+            'data' => [
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->username,
+                    'email' => $user->email,
+                    'created_at' => date('Y-m-d H:i:s')
+                ],
+                'token' => $token
+            ]
         ]);
     } else {
         http_response_code(500); // Internal Server Error
-        echo json_encode(['error' => 'Failed to create user']);
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'Failed to create user'
+        ]);
     }
     
 } catch (Exception $e) {
     error_log("Registration error: " . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['error' => 'Internal server error']);
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Internal server error'
+    ]);
 }
 ?>
