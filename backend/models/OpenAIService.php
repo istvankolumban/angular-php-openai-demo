@@ -59,7 +59,7 @@ class OpenAIService {
                 $run = $this->client->threads()->runs()->retrieve($threadId, $run->id);
                 
                 if (time() - $start > $timeout) {
-                    throw new Exception('Assistant response timeout');
+                    throw new Exception('Math teacher response timeout');
                 }
             } while ($run->status === 'queued' || $run->status === 'in_progress');
 
@@ -79,14 +79,14 @@ class OpenAIService {
                     'run_id' => $run->id
                 ];
             } else {
-                throw new Exception('Assistant run failed with status: ' . $run->status);
+                throw new Exception('Math teacher run failed with status: ' . $run->status);
             }
 
         } catch (Exception $e) {
-            error_log("OpenAI Assistant error: " . $e->getMessage());
+            error_log("OpenAI Math Teacher error: " . $e->getMessage());
             return [
                 'success' => false,
-                'error' => 'Failed to get response from AI assistant: ' . $e->getMessage()
+                'error' => 'Failed to get response from math teacher: ' . $e->getMessage()
             ];
         }
     }
@@ -134,7 +134,7 @@ class OpenAIService {
         if (!$this->isConfigured()) {
             return [
                 'success' => false,
-                'error' => 'OpenAI API key not configured'
+                'error' => 'Math teacher API key not configured'
             ];
         }
 
@@ -146,7 +146,7 @@ class OpenAIService {
             }
 
             // Test with a simple message
-            $result = $this->sendMessageToAssistant('Hello! Please respond with a brief greeting.');
+            $result = $this->sendMessageToAssistant('Hello! Please introduce yourself as a math teacher.');
             
             if ($result['success']) {
                 return [
